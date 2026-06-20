@@ -122,6 +122,7 @@ class LightGBMPredictor:
             
             # Try to train with LightGBM
             try:
+                # pyrefly: ignore [missing-import]
                 import lightgbm as lgb
                 print("Training using LightGBM regressor...")
                 model = lgb.LGBMRegressor(

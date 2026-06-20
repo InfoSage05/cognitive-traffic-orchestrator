@@ -3,3 +3,6 @@ lightgbm
 scikit-learn
 streamlit
 langchain
+openvino
+datasets
+requests
