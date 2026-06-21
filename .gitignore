@@ -17,3 +17,4 @@ frontend/.env.local
 
 # python backend env
 cognitive-traffic-orchestrator/.env
+cognitive-traffic-orchestrator/.env.example
