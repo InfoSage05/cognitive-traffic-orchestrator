@@ -109,5 +109,37 @@ class NearestNeighborRAG:
         else:
             recommendation["validation_status"] = "passed"
             recommendation["verification_message"] = "Verification passed."
-            
+
         return recommendation
+
+    def retrieve_similar_events(self, event_cause: str, corridor: str = None, limit: int = 10) -> list:
+        """
+        Returns raw similar historical events for use by mobility_agent /
+        recommendation_agent, without the barricade/manpower business-rule
+        layer applied in recommend(). Does not refactor or alter recommend()
+        or validate_brief().
+        """
+        conn = get_connection()
+        try:
+            if corridor:
+                query = """
+                    SELECT id, event_cause, corridor, requires_road_closure, priority, description
+                    FROM events
+                    WHERE event_cause = ? OR corridor = ?
+                    LIMIT ?
+                """
+                df = pd.read_sql_query(query, conn, params=(event_cause, corridor, limit))
+            else:
+                query = """
+                    SELECT id, event_cause, corridor, requires_road_closure, priority, description
+                    FROM events
+                    WHERE event_cause = ?
+                    LIMIT ?
+                """
+                df = pd.read_sql_query(query, conn, params=(event_cause, limit))
+            return df.to_dict(orient="records")
+        except Exception as e:
+            print(f"Error retrieving similar events: {e}")
+            return []
+        finally:
+            conn.close()

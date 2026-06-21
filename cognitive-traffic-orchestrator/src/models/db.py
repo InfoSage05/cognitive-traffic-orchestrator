@@ -4,9 +4,41 @@ import os
 
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'traffic_orchestrator.db'))
 CSV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'Theme_2_dataset.csv'))
+MIGRATIONS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), 'migrations'))
 
 def get_connection():
     return sqlite3.connect(DB_PATH)
+
+def run_migrations(conn):
+    """Applies additive Phase 1 .sql migration files exactly once each.
+    Never touches the legacy 'events' table; every migration file uses
+    CREATE TABLE IF NOT EXISTS only, so re-running is always safe."""
+    cursor = conn.cursor()
+    cursor.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT)")
+    cursor.execute("SELECT version FROM schema_migrations")
+    applied = {row[0] for row in cursor.fetchall()}
+
+    if not os.path.isdir(MIGRATIONS_DIR):
+        return
+
+    for filename in sorted(os.listdir(MIGRATIONS_DIR)):
+        if not filename.endswith('.sql') or filename in applied:
+            continue
+        filepath = os.path.join(MIGRATIONS_DIR, filename)
+        with open(filepath, 'r', encoding='utf-8') as f:
+            sql_text = f.read()
+        try:
+            cursor.executescript(sql_text)
+            cursor.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
+                (filename,)
+            )
+            conn.commit()
+            print(f"[MIGRATION] Applied {filename}")
+        except Exception as e:
+            conn.rollback()
+            print(f"[MIGRATION] Failed to apply {filename}: {e}")
+            raise
 
 def init_db():
     """Initializes the database and loads the CSV data if not already loaded."""
@@ -48,6 +80,7 @@ def init_db():
                     reason_breakdown TEXT
                 )
             """)
+    run_migrations(conn)
     conn.commit()
     conn.close()
 

@@ -8,3 +8,7 @@ datasets
 requests
 fastapi
 uvicorn[standard]
+python-dotenv
+tenacity
+pydantic
+pytest

@@ -7,6 +7,7 @@ import {
   Workflow,
   Settings,
   Zap,
+  Map,
 } from "lucide-react";
 
 export type SectionId =
@@ -15,6 +16,7 @@ export type SectionId =
   | "models"
   | "alerts"
   | "pipeline"
+  | "map"
   | "settings";
 
 const items: { id: SectionId; label: string; icon: typeof LayoutDashboard; badge?: string }[] = [
@@ -23,6 +25,7 @@ const items: { id: SectionId; label: string; icon: typeof LayoutDashboard; badge
   { id: "models", label: "Model Matrix", icon: Cpu },
   { id: "alerts", label: "Dispatch", icon: Bell },
   { id: "pipeline", label: "Pipeline", icon: Workflow },
+  { id: "map", label: "Map", icon: Map },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 

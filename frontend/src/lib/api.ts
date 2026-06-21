@@ -63,6 +63,55 @@ export interface DashboardSummary {
   historicalEventCount: number;
 }
 
+export interface RouteSummary {
+  distance_km: number | null;
+  duration_min: number | null;
+  eta_minutes: number | null;
+  risk_score: number;
+  congestion_score: number;
+  corridor: string;
+  geometry: string | null;
+}
+
+export interface RouteAlternative {
+  distance_km: number | null;
+  duration_min: number | null;
+  congestion_level: string | null;
+}
+
+export interface RouteBundle {
+  best_route: RouteSummary;
+  alternatives: RouteAlternative[];
+  schema_version: string;
+  route_id?: string;
+}
+
+export interface NearbyPoi {
+  name: string;
+  category: string;
+  lat: number | null;
+  lon: number | null;
+  distance_m: number | null;
+  source: string;
+  schema_version: string;
+}
+
+export interface NearbyResult {
+  pois: NearbyPoi[];
+  queried_at: string;
+  schema_version: string;
+}
+
+export interface RecommendationResult {
+  risk_score: number;
+  predicted_duration_hours: number;
+  dispatch_recommendation: Recommendation;
+  human_summary: string;
+  schema_version: string;
+  recommendation_id?: string;
+  route_info?: RouteBundle;
+}
+
 export const api = {
   triggerEvent: () => request<EventBundle>("/api/events/trigger", { method: "POST" }),
   recentEvents: (limit = 12) => request<EventBundle[]>(`/api/events/recent?limit=${limit}`),
@@ -73,4 +122,18 @@ export const api = {
     }),
   recentDispatches: (limit = 12) => request<DispatchRecord[]>(`/api/alerts/recent?limit=${limit}`),
   dashboardSummary: () => request<DashboardSummary>("/api/dashboard/summary"),
+  planRoute: (source: [number, number], destination: [number, number]) =>
+    request<RouteBundle>("/api/mobility/route", {
+      method: "POST",
+      body: JSON.stringify({ source, destination }),
+    }),
+  nearby: (lat: number, lon: number, categories?: string[]) =>
+    request<NearbyResult>(
+      `/api/nearby?lat=${lat}&lon=${lon}${categories?.length ? `&categories=${categories.join(",")}` : ""}`,
+    ),
+  recommendation: (event: Record<string, unknown>) =>
+    request<RecommendationResult>("/api/recommendation", {
+      method: "POST",
+      body: JSON.stringify(event),
+    }),
 };

@@ -78,3 +78,30 @@ class RiskIndexCalculator:
             return 50.0
         finally:
             conn.close()
+
+    def calculate_route_risk(self, corridors: list, weights: list = None) -> dict:
+        """
+        Aggregates calculate_risk_index() across the corridors a route passes
+        through, for use by MobilityAgent. Does not modify calculate_risk_index.
+        """
+        if not corridors:
+            return {"overall_risk": 30.0, "per_corridor": {}, "schema_version": "1.0"}
+
+        if weights is None:
+            weights = [1.0] * len(corridors)
+
+        per_corridor = {}
+        weighted_sum = 0.0
+        weight_total = 0.0
+        for corridor, weight in zip(corridors, weights):
+            score = self.calculate_risk_index(corridor)
+            per_corridor[corridor] = score
+            weighted_sum += score * weight
+            weight_total += weight
+
+        overall_risk = weighted_sum / weight_total if weight_total > 0 else 30.0
+        return {
+            "overall_risk": round(overall_risk, 1),
+            "per_corridor": per_corridor,
+            "schema_version": "1.0",
+        }

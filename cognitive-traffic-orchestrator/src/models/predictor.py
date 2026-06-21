@@ -198,3 +198,17 @@ class LightGBMPredictor:
         except Exception as e:
             print(f"Error during prediction: {e}")
             return 2.5
+
+    def predict_eta(self, base_duration_min: float, corridor: str, risk_score: float) -> float:
+        """
+        Heuristic ETA forecast: inflates a base route duration by the corridor's
+        risk score (0-100), up to +50% at max risk. This is a placeholder seam,
+        NOT a trained model output -- Theme_2_dataset.csv contains incident
+        clearance durations, not trip-time data, so there is nothing to train an
+        ETA model on yet. Swap this for a trained model once a real trip-time
+        dataset is available.
+        """
+        if base_duration_min is None:
+            return base_duration_min
+        risk_score = max(0.0, min(100.0, risk_score or 0.0))
+        return float(base_duration_min) * (1.0 + risk_score / 200.0)

@@ -16,6 +16,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 
 from src.agents.core_orchestrator import PipelineOrchestrator
 from src.app.alert_channel import send_alert_to_officers
+from src.models import mobility_store
 from src.models.analogue_recommender import NearestNeighborRAG
 from src.models.db import get_connection, init_db, insert_event
 from src.models.predictor import LightGBMPredictor
@@ -37,6 +38,7 @@ predictor = LightGBMPredictor()
 rag = NearestNeighborRAG()
 if predictor.model is None:
     predictor.train()
+orchestrator.wire_shared_models(risk_calc=risk_calc, predictor=predictor, rag=rag)
 
 # In-memory session state, mirroring what Streamlit kept in st.session_state.
 # Resets on server restart; the historical dataset in SQLite does not.
@@ -188,3 +190,44 @@ def dashboard_summary():
 @app.get("/api/health")
 def health():
     return {"status": "ok", "predictorTrained": predictor.model is not None}
+
+
+@app.post("/api/mobility/route")
+def plan_route(payload: dict):
+    """Plans a route between source and destination: {"source": [lat, lon], "destination": [lat, lon]}."""
+    source = tuple(payload["source"])
+    destination = tuple(payload["destination"])
+    bundle = orchestrator.plan_route(source, destination)
+    best = bundle.get("best_route", {})
+    route_id = mobility_store.insert_route({
+        "source_lat": source[0],
+        "source_lon": source[1],
+        "dest_lat": destination[0],
+        "dest_lon": destination[1],
+        "distance_km": best.get("distance_km"),
+        "duration_min": best.get("duration_min"),
+        "eta_minutes": best.get("eta_minutes"),
+        "risk_score": best.get("risk_score"),
+        "congestion_score": best.get("congestion_score"),
+        "corridor": best.get("corridor"),
+        "provider": "mappls",
+    })
+    mobility_store.insert_route_alternatives(route_id, bundle.get("alternatives", []))
+    bundle["route_id"] = route_id
+    return bundle
+
+
+@app.get("/api/nearby")
+def nearby(lat: float, lon: float, categories: str = None):
+    """Discovers nearby POIs (hospitals, police, fuel, etc.) around a point."""
+    category_list = categories.split(",") if categories else None
+    return orchestrator.find_nearby(lat, lon, category_list)
+
+
+@app.post("/api/recommendation")
+def recommendation(payload: dict):
+    """Generates a human-readable recommendation for an event payload."""
+    rec = orchestrator.recommend_action(payload)
+    rec_id = mobility_store.insert_mobility_recommendation(payload.get("id"), rec)
+    rec["recommendation_id"] = rec_id
+    return rec

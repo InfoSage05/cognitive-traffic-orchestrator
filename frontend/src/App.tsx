@@ -8,6 +8,7 @@ import { ModelMatrix } from "@/components/dashboard/ModelMatrix";
 import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
 import { PipelinePanel } from "@/components/dashboard/PipelinePanel";
 import { SettingsPanel } from "@/components/dashboard/SettingsPanel";
+import { MapDashboard } from "@/components/dashboard/map/MapDashboard";
 
 const META: Record<SectionId, { title: string; subtitle: string }> = {
   overview: { title: "Operations Overview", subtitle: "Real-time pulse across Bengaluru corridors" },
@@ -15,6 +16,7 @@ const META: Record<SectionId, { title: string; subtitle: string }> = {
   models: { title: "Model Matrix", subtitle: "Risk · LightGBM · Nearest-Neighbour RAG" },
   alerts: { title: "Dispatch Channel", subtitle: "Verified briefs streaming to field units" },
   pipeline: { title: "Pipeline", subtitle: "Loop engineering across ingestion to dispatch" },
+  map: { title: "Mobility Map", subtitle: "Route planning, nearby discovery & emergency mode" },
   settings: { title: "Settings", subtitle: "Workspace configuration" },
 };
 
@@ -58,6 +60,7 @@ export default function App() {
               {section === "models" && <ModelMatrix />}
               {section === "alerts" && <AlertsPanel />}
               {section === "pipeline" && <PipelinePanel />}
+              {section === "map" && <MapDashboard />}
               {section === "settings" && <SettingsPanel />}
             </motion.div>
           </AnimatePresence>
