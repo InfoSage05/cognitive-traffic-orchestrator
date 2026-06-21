@@ -6,3 +6,5 @@ langchain
 openvino
 datasets
 requests
+fastapi
+uvicorn[standard]

@@ -90,9 +90,12 @@ cognitive-traffic-orchestrator/
 │   │   └── analogue_recommender.py     # Nearest-Neighbor RAG & validation grader
 │   └── app/
 │       ├── main.py                     # Streamlit Console Dashboard Hub
+│       ├── api.py                      # FastAPI JSON layer for the React dashboard
 │       └── alert_channel.py            # SMS/Mobile push webhook notifier
 ├── requirements.txt                    # App package dependencies
 └── README.md                           # Documentation
+
+../../frontend/                         # React/Vite dashboard, see frontend/README.md
 ```
 
 ---
@@ -134,10 +137,17 @@ python src/edge/openvino_inference.py
 *Note: To stream gated datasets or bypass public query thresholds, you can set the `HF_TOKEN` environment variable.*
 
 ### Run the Streamlit Management Console
-Run the main web dashboard:
+Run the original internal/ops dashboard:
 ```powershell
 streamlit run src/app/main.py
 ```
+
+### Run the FastAPI Backend (for the React dashboard)
+Exposes the same orchestrator/risk/predictor/RAG pipeline as JSON over HTTP. Still from inside this `cognitive-traffic-orchestrator` folder:
+```powershell
+uvicorn src.app.api:app --reload --port 8000
+```
+See `../../frontend/README.md` for running the React dashboard against this API.
 
 ---
 

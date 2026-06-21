@@ -8,3 +8,9 @@ feedback_log.csv
 .ipynb_checkpoints/
 *.xlsx
 *.csv
+
+# frontend (Vite/React)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
