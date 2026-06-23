@@ -13,6 +13,8 @@ import {
   Clock,
   ShieldCheck,
   Megaphone,
+  Play,
+  Loader2,
 } from "lucide-react";
 import {
   AreaChart,
@@ -75,16 +77,24 @@ const COLORS = ["#34d399", "#fbbf24", "#f43f5e", "#60a5fa", "#a78bfa"];
 export function EventsPanel() {
   const [events, setEvents] = useState<LocalEvent[]>([]);
   const [isDemo, setIsDemo] = useState(false);
+  const [triggering, setTriggering] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Use refs for intervals and state to avoid stale closures
+  const isDemoRef = useRef(false);
+  const mockIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    let mockInterval: NodeJS.Timeout;
-
     const loadLive = async () => {
       try {
         const bundles = await api.recentEvents(20);
         if (bundles && bundles.length > 0) {
           setIsDemo(false);
+          isDemoRef.current = false;
+          if (mockIntervalRef.current) {
+            clearInterval(mockIntervalRef.current);
+            mockIntervalRef.current = null;
+          }
           const mapped = bundles.map((b) => ({
             id: b.event.id,
             timestamp: new Date(b.event.timestamp).toLocaleTimeString(),
@@ -108,10 +118,11 @@ export function EventsPanel() {
     };
 
     const startDemo = () => {
-      if (isDemo) return;
+      if (isDemoRef.current) return;
       setIsDemo(true);
+      isDemoRef.current = true;
       setEvents(Array.from({ length: 5 }).map(generateMockEvent));
-      mockInterval = setInterval(() => {
+      mockIntervalRef.current = setInterval(() => {
         setEvents((prev) => {
           const newEv = generateMockEvent();
           return [newEv, ...prev].slice(0, 30); // Keep last 30
@@ -124,9 +135,42 @@ export function EventsPanel() {
 
     return () => {
       clearInterval(livePoll);
-      if (mockInterval) clearInterval(mockInterval);
+      if (mockIntervalRef.current) clearInterval(mockIntervalRef.current);
     };
   }, []);
+
+  const handleTriggerMock = async () => {
+    try {
+      setTriggering(true);
+      const b = await api.triggerEvent();
+      const newEv: LocalEvent = {
+        id: b.event.id,
+        timestamp: new Date(b.event.timestamp).toLocaleTimeString(),
+        type: b.event.event_cause.replace(/_/g, " "),
+        camera: "Edge Trigger",
+        location: b.event.corridor,
+        severity: b.riskScore >= 70 ? "high" : b.riskScore >= 40 ? "medium" : "low",
+        agent: "Mock Trigger",
+        status: "Active",
+        rawText: b.event.description,
+        translatedText: b.event.event_cause.replace(/_/g, " "),
+        confidence: 99,
+      };
+      
+      setIsDemo(false);
+      isDemoRef.current = false;
+      if (mockIntervalRef.current) {
+        clearInterval(mockIntervalRef.current);
+        mockIntervalRef.current = null;
+      }
+      
+      setEvents(prev => [newEv, ...prev]);
+    } catch(e) {
+      console.error("Failed to trigger mock event:", e);
+    } finally {
+      setTriggering(false);
+    }
+  };
 
   const latestEvent = events[0] || generateMockEvent();
 
@@ -187,12 +231,20 @@ export function EventsPanel() {
                 </span>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              <button
+                onClick={handleTriggerMock}
+                disabled={triggering}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--gradient-primary)] text-white shadow-[0_0_15px_rgba(123,44,191,0.4)] hover:shadow-[0_0_20px_rgba(123,44,191,0.6)] transition-all disabled:opacity-50 mr-2"
+              >
+                {triggering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" fill="currentColor" />}
+                Trigger mock event
+              </button>
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                <span className="w-2 h-2 rounded-full bg-rose-500" /> High
+                <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]" /> High
               </div>
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                <span className="w-2 h-2 rounded-full bg-amber-500" /> Medium
+                <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" /> Medium
               </div>
             </div>
           </div>
