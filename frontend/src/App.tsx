@@ -9,6 +9,7 @@ import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
 import { PipelinePanel } from "@/components/dashboard/PipelinePanel";
 import { SettingsPanel } from "@/components/dashboard/SettingsPanel";
 import { MapDashboard } from "@/components/dashboard/map/MapDashboard";
+import { AIBriefPanel } from "@/components/dashboard/AIBriefPanel";
 
 const META: Record<SectionId, { title: string; subtitle: string }> = {
   overview: { title: "Operations Overview", subtitle: "Real-time pulse across Bengaluru corridors" },
@@ -22,13 +23,14 @@ const META: Record<SectionId, { title: string; subtitle: string }> = {
 
 export default function App() {
   const [section, setSection] = useState<SectionId>("overview");
+  const [aiOpen, setAiOpen] = useState(false);
   const meta = META[section];
 
   return (
     <div className="min-h-screen flex">
       <Sidebar active={section} onChange={setSection} />
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar title={meta.title} subtitle={meta.subtitle} />
+        <TopBar title={meta.title} subtitle={meta.subtitle} onAIBrief={() => setAiOpen(true)} />
 
         <div className="lg:hidden px-5 pb-1 flex gap-1.5 overflow-x-auto">
           {(Object.keys(META) as SectionId[]).map((s) => (
@@ -66,6 +68,7 @@ export default function App() {
           </AnimatePresence>
         </div>
       </div>
+      <AIBriefPanel open={aiOpen} onClose={() => setAiOpen(false)} />
     </div>
   );
 }

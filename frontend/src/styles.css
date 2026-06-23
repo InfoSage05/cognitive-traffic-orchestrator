@@ -158,3 +158,27 @@
   100% { transform: translateX(-50%); }
 }
 @utility ticker { animation: ticker 35s linear infinite; }
+
+/* ─── AI Prose Styles ──────────────────────────────────────────── */
+.ai-prose .ai-h1 { font-size: 1.1rem; font-weight: 700; margin: 0.75rem 0 0.4rem; color: var(--color-foreground); }
+.ai-prose .ai-h2 { font-size: 1rem; font-weight: 650; margin: 0.6rem 0 0.3rem; color: var(--color-foreground); }
+.ai-prose .ai-h3 { font-size: 0.9rem; font-weight: 600; margin: 0.5rem 0 0.25rem; color: var(--color-accent); }
+.ai-prose .ai-p  { margin: 0.3rem 0; line-height: 1.65; }
+.ai-prose .ai-ul { padding-left: 1.1rem; margin: 0.3rem 0; }
+.ai-prose .ai-li { list-style-type: disc; margin: 0.2rem 0; line-height: 1.55; }
+.ai-prose .inline-code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8em;
+  background: oklch(0.28 0.04 270 / 0.8);
+  border: 1px solid oklch(1 0 0 / 0.08);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+.ai-prose strong { color: var(--color-foreground); font-weight: 650; }
+.ai-prose em     { color: var(--color-muted-foreground); font-style: italic; }
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+

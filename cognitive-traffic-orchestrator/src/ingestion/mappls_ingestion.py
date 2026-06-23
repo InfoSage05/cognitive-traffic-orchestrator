@@ -102,7 +102,7 @@ class MapplsClient:
 
     def route(self, src: tuple, dst: tuple, alternatives: bool = True) -> dict:
         result = self.http.get(
-            f"{ROUTE_BASE}/direction/route_adv/driving/{src[0]},{src[1]};{dst[0]},{dst[1]}",
+            f"{ROUTE_BASE}/direction/route_adv/driving/{src[1]},{src[0]};{dst[1]},{dst[0]}",
             params=self._auth_params(geometries="polyline", alternatives="true" if alternatives else "false", steps="false"),
             cache_key=f"mappls:route:{src}:{dst}:{alternatives}",
             cache_ttl=90,
@@ -124,8 +124,8 @@ class MapplsClient:
         })
 
     def distance_matrix(self, origins: list, destinations: list) -> dict:
-        origin_str = ";".join(f"{lat},{lon}" for lat, lon in origins)
-        dest_str = ";".join(f"{lat},{lon}" for lat, lon in destinations)
+        origin_str = ";".join(f"{lon},{lat}" for lat, lon in origins)
+        dest_str = ";".join(f"{lon},{lat}" for lat, lon in destinations)
         result = self.http.get(
             f"{ROUTE_BASE}/dm/distance_matrix/driving/{origin_str};{dest_str}",
             params=self._auth_params(),

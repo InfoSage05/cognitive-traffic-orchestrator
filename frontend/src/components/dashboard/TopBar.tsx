@@ -1,7 +1,15 @@
 import { Search, Bell, ChevronDown, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 
-export function TopBar({ title, subtitle }: { title: string; subtitle: string }) {
+export function TopBar({
+  title,
+  subtitle,
+  onAIBrief,
+}: {
+  title: string;
+  subtitle: string;
+  onAIBrief?: () => void;
+}) {
   return (
     <div className="flex items-center justify-between gap-4 p-3 px-5">
       <div>
@@ -28,7 +36,10 @@ export function TopBar({ title, subtitle }: { title: string; subtitle: string })
           <Bell className="w-4 h-4" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-magenta" />
         </button>
-        <button className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--gradient-primary)] text-primary-foreground font-medium text-sm glow">
+        <button
+          onClick={onAIBrief}
+          className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--gradient-primary)] text-primary-foreground font-medium text-sm glow hover:opacity-90 transition-opacity active:scale-95"
+        >
           <Sparkles className="w-4 h-4" />
           AI Brief
         </button>

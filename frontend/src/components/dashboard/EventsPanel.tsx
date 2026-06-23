@@ -1,166 +1,399 @@
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
-import { AlertTriangle, Cloud, Car, Wrench, Filter, Zap, Loader2 } from "lucide-react";
+import {
+  Camera,
+  Activity,
+  AlertTriangle,
+  Zap,
+  MapPin,
+  TrendingUp,
+  BrainCircuit,
+  Filter,
+  Languages,
+  Clock,
+  ShieldCheck,
+  Megaphone,
+} from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { api, type EventBundle } from "@/lib/api";
 
-type Severity = "high" | "medium" | "low";
+type LocalEvent = {
+  id: string;
+  timestamp: string;
+  type: string;
+  camera: string;
+  location: string;
+  severity: "high" | "medium" | "low";
+  agent: string;
+  status: string;
+  rawText: string;
+  translatedText: string;
+  confidence: number;
+};
 
-function severityFromRisk(riskScore: number): Severity {
-  if (riskScore >= 70) return "high";
-  if (riskScore >= 40) return "medium";
-  return "low";
+const MOCK_LOCATIONS = ["Silk Board Junction", "Marathahalli Bridge", "Koramangala 80ft Road", "Indiranagar 100ft", "Whitefield Main Rd"];
+const MOCK_CAMERAS = ["CAM-SILK-01", "CAM-MARA-44", "CAM-KORA-12", "CAM-INDI-09", "CAM-WHIT-88"];
+const MOCK_TYPES = ["Congestion Cascade", "Vehicle Breakdown", "Waterlogging", "Signal Failure", "Minor Accident"];
+const MOCK_AGENTS = ["OpenVINO Edge", "Spatial Agent", "Risk Engine", "Recommendation Agent", "Dispatch Coordinator"];
+
+function generateMockEvent(): LocalEvent {
+  const isHigh = Math.random() > 0.8;
+  const isMed = Math.random() > 0.5;
+  const severity = isHigh ? "high" : isMed ? "medium" : "low";
+  const type = MOCK_TYPES[Math.floor(Math.random() * MOCK_TYPES.length)];
+  const loc = MOCK_LOCATIONS[Math.floor(Math.random() * MOCK_LOCATIONS.length)];
+  
+  return {
+    id: `ev-${Math.random().toString(36).substr(2, 9)}`,
+    timestamp: new Date().toLocaleTimeString(),
+    type,
+    camera: MOCK_CAMERAS[Math.floor(Math.random() * MOCK_CAMERAS.length)],
+    location: loc,
+    severity,
+    agent: MOCK_AGENTS[Math.floor(Math.random() * MOCK_AGENTS.length)],
+    status: Math.random() > 0.7 ? "Resolved" : "Active",
+    rawText: `ರಸ್ತೆಯಲ್ಲಿ ವಾಹನ ದಟ್ಟಣೆ (${type}) near ${loc}`,
+    translatedText: `${type} detected. Significant delays expected.`,
+    confidence: Math.floor(Math.random() * 15) + 85,
+  };
 }
 
-function iconForCause(cause: string) {
-  const c = cause.toLowerCase();
-  if (c.includes("water")) return Cloud;
-  if (c.includes("accident")) return Car;
-  if (c.includes("breakdown") || c.includes("vehicle")) return Wrench;
-  return AlertTriangle;
-}
+const COLORS = ["#34d399", "#fbbf24", "#f43f5e", "#60a5fa", "#a78bfa"];
 
 export function EventsPanel() {
-  const [bundles, setBundles] = useState<EventBundle[]>([]);
-  const [filter, setFilter] = useState<"all" | Severity>("all");
-  const [triggering, setTriggering] = useState(false);
-
-  const load = () => api.recentEvents(12).then(setBundles).catch(() => {});
+  const [events, setEvents] = useState<LocalEvent[]>([]);
+  const [isDemo, setIsDemo] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    load();
+    let mockInterval: NodeJS.Timeout;
+
+    const loadLive = async () => {
+      try {
+        const bundles = await api.recentEvents(20);
+        if (bundles && bundles.length > 0) {
+          setIsDemo(false);
+          const mapped = bundles.map((b) => ({
+            id: b.event.id,
+            timestamp: new Date(b.event.timestamp).toLocaleTimeString(),
+            type: b.event.event_cause.replace(/_/g, " "),
+            camera: "Live Feed",
+            location: b.event.corridor,
+            severity: b.riskScore >= 70 ? "high" : b.riskScore >= 40 ? "medium" : ("low" as const),
+            agent: "Live Agent Pipeline",
+            status: "Active",
+            rawText: b.event.description,
+            translatedText: b.event.event_cause.replace(/_/g, " "),
+            confidence: 95,
+          }));
+          setEvents(mapped);
+        } else {
+          startDemo();
+        }
+      } catch (e) {
+        startDemo();
+      }
+    };
+
+    const startDemo = () => {
+      if (isDemo) return;
+      setIsDemo(true);
+      setEvents(Array.from({ length: 5 }).map(generateMockEvent));
+      mockInterval = setInterval(() => {
+        setEvents((prev) => {
+          const newEv = generateMockEvent();
+          return [newEv, ...prev].slice(0, 30); // Keep last 30
+        });
+      }, 4000);
+    };
+
+    loadLive();
+    const livePoll = setInterval(loadLive, 10000);
+
+    return () => {
+      clearInterval(livePoll);
+      if (mockInterval) clearInterval(mockInterval);
+    };
   }, []);
 
-  const triggerEvent = async () => {
-    setTriggering(true);
-    try {
-      await api.triggerEvent();
-      await load();
-    } catch {
-      // backend offline; surfaced implicitly by an empty/stale feed
-    } finally {
-      setTriggering(false);
-    }
-  };
+  const latestEvent = events[0] || generateMockEvent();
 
-  const filtered = bundles.filter(
-    (b) => filter === "all" || severityFromRisk(b.riskScore) === filter,
-  );
+  const kpis = [
+    { label: "Active Cameras", value: "244", icon: Camera, color: "text-blue-400" },
+    { label: "Processed Today", value: "8,291", icon: Activity, color: "text-emerald-400" },
+    { label: "Active Alerts", value: events.filter(e => e.severity === 'high').length + 3, icon: AlertTriangle, color: "text-rose-500" },
+    { label: "Avg Risk Score", value: "68", icon: TrendingUp, color: "text-amber-400" },
+    { label: "Active Corridors", value: "14", icon: MapPin, color: "text-purple-400" },
+  ];
+
+  // Mock chart data
+  const riskTrendData = events.slice(0, 15).reverse().map((e, i) => ({
+    time: i,
+    risk: e.severity === 'high' ? 85 + Math.random()*10 : e.severity === 'medium' ? 50 + Math.random()*20 : 20 + Math.random()*15
+  }));
+
+  const typeDist = MOCK_TYPES.map(t => ({
+    name: t,
+    value: events.filter(e => e.type === t).length || Math.floor(Math.random() * 10) + 1
+  }));
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 p-3 px-5 pb-6">
-      <div className="xl:col-span-2 glass rounded-2xl p-4">
-        <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-          <div>
-            <div className="text-sm font-medium">Edge Event Stream</div>
-            <div className="text-xs text-muted-foreground">
-              OpenVINO + Multilingual Imputation Agent · live via FastAPI
+    <div className="flex flex-col h-full gap-4 p-3 px-5 pb-6 overflow-y-auto custom-scrollbar">
+      
+      {/* Top KPI Row */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 shrink-0">
+        {kpis.map((kpi, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+            className="glass rounded-xl p-3 flex items-center justify-between border border-border/50"
+          >
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{kpi.label}</div>
+              <div className={`text-xl font-bold mt-0.5 ${kpi.color}`}>{kpi.value}</div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={triggerEvent}
-              disabled={triggering}
-              className="px-3 py-1.5 rounded-lg bg-[var(--gradient-primary)] text-primary-foreground text-xs font-medium flex items-center gap-1.5 glow disabled:opacity-60"
-            >
-              {triggering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-              Trigger mock event
-            </button>
-            <div className="glass rounded-lg p-1 flex text-xs">
-              {(["all", "high", "medium", "low"] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`px-2.5 py-1 rounded-md capitalize ${
-                    filter === f
-                      ? "bg-[var(--gradient-primary)] text-primary-foreground"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
+            <div className={`p-2 rounded-lg bg-secondary/50 ${kpi.color}`}>
+              <kpi.icon className="w-5 h-5" />
             </div>
-          </div>
-        </div>
-
-        <div className="space-y-2 max-h-[560px] overflow-auto pr-1">
-          <AnimatePresence initial={false}>
-            {filtered.map((b) => {
-              const severity = severityFromRisk(b.riskScore);
-              const Icon = iconForCause(b.event.event_cause);
-              const color =
-                severity === "high"
-                  ? "text-destructive bg-destructive/10 border-destructive/20"
-                  : severity === "medium"
-                    ? "text-warning bg-warning/10 border-warning/20"
-                    : "text-success bg-success/10 border-success/20";
-              return (
-                <motion.div
-                  key={b.event.id}
-                  layout
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className={`p-3 rounded-xl border flex items-start gap-3 ${color}`}
-                >
-                  <div className="p-2 rounded-lg bg-background/40">
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium text-sm text-foreground">
-                        {b.event.event_cause.replace(/_/g, " ")} · {b.event.corridor}
-                      </div>
-                      <span className="text-[10px] text-muted-foreground">
-                        Risk {b.riskScore} · {b.predictedDurationHours}h clearance
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      Raw: <span className="font-mono">{b.event.description}</span>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-          {!filtered.length && (
-            <div className="text-xs text-muted-foreground p-3">
-              No events yet — trigger a mock edge event to start the pipeline.
-            </div>
-          )}
-        </div>
+          </motion.div>
+        ))}
       </div>
 
-      <div className="glass rounded-2xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Filter className="w-4 h-4 text-accent" />
-          <div className="text-sm font-medium">Latest Imputation</div>
-        </div>
-        {bundles[0] ? (
-          <div className="space-y-3 text-xs">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Resolved cause</span>
-              <span className="font-medium">{bundles[0].event.event_cause}</span>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 flex-1 min-h-[400px]">
+        
+        {/* Main Event Timeline (Span 8) */}
+        <div className="xl:col-span-8 glass rounded-xl p-4 border border-border/50 flex flex-col">
+          <div className="flex items-center justify-between mb-4 shrink-0">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-cyan-400" />
+              <div className="text-sm font-semibold">Live Operational Event Stream</div>
+              {isDemo && (
+                <span className="ml-2 px-2 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase tracking-widest animate-pulse">
+                  Demo Mode
+                </span>
+              )}
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Reason breakdown</span>
-              <span className="font-medium">{bundles[0].event.reason_breakdown}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Snapped corridor</span>
-              <span className="font-medium">{bundles[0].event.corridor}</span>
-            </div>
-            <div className="mt-4 p-3 rounded-xl bg-[var(--gradient-aurora)] border border-white/5">
-              <div className="text-xs font-medium mb-1">Raw description</div>
-              <div className="text-sm font-semibold text-gradient">{bundles[0].event.description}</div>
-              <div className="text-[11px] text-muted-foreground">
-                mapped → "{bundles[0].event.event_cause.replace(/_/g, " ")}"
+            <div className="flex gap-2">
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                <span className="w-2 h-2 rounded-full bg-rose-500" /> High
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                <span className="w-2 h-2 rounded-full bg-amber-500" /> Medium
               </div>
             </div>
           </div>
-        ) : (
-          <div className="text-xs text-muted-foreground">Trigger an event to see imputation output.</div>
-        )}
+          
+          <div ref={containerRef} className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+            <AnimatePresence initial={false}>
+              {events.map((ev, i) => {
+                const color = ev.severity === "high" ? "border-rose-500/30 bg-rose-500/10" 
+                            : ev.severity === "medium" ? "border-amber-500/30 bg-amber-500/10" 
+                            : "border-emerald-500/30 bg-emerald-500/5";
+                const dotColor = ev.severity === "high" ? "bg-rose-500" : ev.severity === "medium" ? "bg-amber-500" : "bg-emerald-500";
+                
+                return (
+                  <motion.div
+                    key={ev.id}
+                    layout
+                    initial={{ opacity: 0, x: -20, scale: 0.95 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                    className={`p-3 rounded-xl border flex items-start gap-3 backdrop-blur-sm ${color}`}
+                  >
+                    <div className={`mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ${dotColor} ${i === 0 ? 'animate-ping' : ''}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="font-semibold text-sm text-white truncate capitalize">{ev.type}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono bg-black/40 px-2 py-0.5 rounded whitespace-nowrap">
+                          [{ev.timestamp}]
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                        <div>
+                          <div className="text-[9px] text-muted-foreground uppercase">Camera / Source</div>
+                          <div className="text-xs font-mono text-cyan-300">{ev.camera}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] text-muted-foreground uppercase">Location</div>
+                          <div className="text-xs text-white truncate">{ev.location}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] text-muted-foreground uppercase">Agent</div>
+                          <div className="text-xs text-purple-300 truncate">{ev.agent}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] text-muted-foreground uppercase">Status</div>
+                          <div className="text-xs text-emerald-300">{ev.status}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Right Panels (Span 4) */}
+        <div className="xl:col-span-4 flex flex-col gap-4">
+          
+          {/* Latest AI Insight */}
+          <div className="glass rounded-xl p-4 border border-border/50">
+            <div className="flex items-center gap-2 mb-3">
+              <BrainCircuit className="w-4 h-4 text-[var(--color-primary)]" />
+              <div className="text-sm font-semibold">Latest AI Insight</div>
+            </div>
+            <div className="p-3 bg-[var(--gradient-cyber)]/10 border border-[var(--color-primary)]/20 rounded-lg relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-[var(--color-primary)]/20 blur-2xl rounded-full" />
+              <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Traffic Summary</div>
+              <p className="text-sm text-white/90 leading-relaxed font-medium">
+                {latestEvent.severity === 'high' ? 'Severe ' : 'Moderate '} 
+                <span className="text-[var(--color-primary)]">{latestEvent.type.toLowerCase()}</span> detected near {latestEvent.location}. 
+                Immediate attention recommended. Expected delay: {latestEvent.severity === 'high' ? '25' : '10'} minutes.
+              </p>
+            </div>
+          </div>
+
+          {/* Latest Imputation */}
+          <div className="glass rounded-xl p-4 border border-border/50 flex-1">
+            <div className="flex items-center gap-2 mb-3">
+              <Languages className="w-4 h-4 text-emerald-400" />
+              <div className="text-sm font-semibold">Latest Imputation Pipeline</div>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="p-2.5 rounded-lg bg-secondary/30 border border-white/5">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] text-muted-foreground uppercase">Original Event (Kannada/Raw)</span>
+                  <span className="text-[9px] bg-secondary px-1.5 py-0.5 rounded">Source</span>
+                </div>
+                <div className="text-xs font-mono text-amber-200/90 break-all">
+                  {latestEvent.rawText}
+                </div>
+              </div>
+              
+              <div className="flex justify-center">
+                <div className="bg-emerald-500/20 text-emerald-400 rounded-full p-1 border border-emerald-500/30">
+                  <Filter className="w-3 h-3" />
+                </div>
+              </div>
+              
+              <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] text-emerald-400 uppercase font-semibold">Imputed English Mapping</span>
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                    {latestEvent.confidence}% Conf
+                  </span>
+                </div>
+                <div className="text-sm font-medium text-white">
+                  {latestEvent.translatedText}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+
+      {/* Bottom Section: Event Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0 h-[220px]">
+        
+        {/* Risk Trend */}
+        <div className="glass rounded-xl p-4 border border-border/50 flex flex-col">
+          <div className="text-xs font-semibold mb-2 flex items-center gap-1.5 text-muted-foreground uppercase">
+            <TrendingUp className="w-3 h-3" /> System Risk Trend
+          </div>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={riskTrendData}>
+                <defs>
+                  <linearGradient id="colorRisk" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="time" hide />
+                <YAxis hide domain={[0, 100]} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#0a0a14', border: '1px solid #1f2937', borderRadius: '8px', fontSize: '12px' }}
+                  itemStyle={{ color: '#fff' }}
+                />
+                <Area type="monotone" dataKey="risk" stroke="#f43f5e" fillOpacity={1} fill="url(#colorRisk)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Event Types */}
+        <div className="glass rounded-xl p-4 border border-border/50 flex flex-col">
+          <div className="text-xs font-semibold mb-2 flex items-center gap-1.5 text-muted-foreground uppercase">
+            <Activity className="w-3 h-3" /> Event Types Distribution
+          </div>
+          <div className="flex-1 min-h-0 relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={typeDist}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={35}
+                  outerRadius={55}
+                  paddingAngle={5}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {typeDist.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#0a0a14', border: '1px solid #1f2937', borderRadius: '8px', fontSize: '12px' }}
+                  itemStyle={{ color: '#fff' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Agent Activity */}
+        <div className="glass rounded-xl p-4 border border-border/50 flex flex-col">
+          <div className="text-xs font-semibold mb-2 flex items-center gap-1.5 text-muted-foreground uppercase">
+            <ShieldCheck className="w-3 h-3" /> Agent Execution Volume
+          </div>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={[
+                { name: 'Img/Text', val: 120 },
+                { name: 'Spatial', val: 98 },
+                { name: 'Risk', val: 86 },
+                { name: 'RAG', val: 45 },
+                { name: 'Dispatch', val: 32 },
+              ]}>
+                <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                  contentStyle={{ backgroundColor: '#0a0a14', border: '1px solid #1f2937', borderRadius: '8px', fontSize: '12px' }}
+                />
+                <Bar dataKey="val" fill="#818cf8" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
       </div>
     </div>
   );

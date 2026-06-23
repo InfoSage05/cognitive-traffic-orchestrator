@@ -6,6 +6,7 @@ langchain
 openvino
 datasets
 requests
+httpx
 fastapi
 uvicorn[standard]
 python-dotenv

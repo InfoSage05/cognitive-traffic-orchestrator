@@ -12,6 +12,14 @@ export const osmTileProvider: MapTileProvider = {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 };
 
-// Seam for a future MapplsTileProvider (using a Mappls Web App key) -- swap this
-// export, or make it user-selectable, without touching any consuming component.
+// CartoDB Dark Matter — free, no key required, perfect for dark-themed UIs
+export const cartoDarkProvider: MapTileProvider = {
+  id: "carto-dark",
+  name: "CartoDB Dark",
+  tileUrl: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+  attribution:
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+};
+
+// Use OSM standard map for a clear, light-themed map view.
 export const activeTileProvider: MapTileProvider = osmTileProvider;

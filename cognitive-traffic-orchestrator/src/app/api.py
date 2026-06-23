@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from src.agents.core_orchestrator import PipelineOrchestrator
+from src.agents.llm_agent import router as llm_router
 from src.app.alert_channel import send_alert_to_officers
 from src.models import mobility_store
 from src.models.analogue_recommender import NearestNeighborRAG
@@ -30,6 +31,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount the LLM Planner/Guide Agent routes
+app.include_router(llm_router)
 
 init_db()
 orchestrator = PipelineOrchestrator()
@@ -100,7 +104,44 @@ def trigger_event():
 
 @app.get("/api/events/recent")
 def recent_events(limit: int = 12):
-    return _session["events"][:limit]
+    session_events = _session["events"]
+    if len(session_events) >= limit:
+        return session_events[:limit]
+
+    needed = limit - len(session_events)
+    conn = get_connection()
+    try:
+        df = pd.read_sql_query(
+            "SELECT id, latitude, longitude, event_cause, requires_road_closure, "
+            "start_datetime as timestamp, corridor, priority, description, reason_breakdown "
+            "FROM events WHERE latitude IS NOT NULL AND longitude IS NOT NULL "
+            "ORDER BY start_datetime DESC LIMIT ?",
+            conn,
+            params=(needed,)
+        )
+    except Exception as e:
+        print(f"Error querying historical events: {e}")
+        df = pd.DataFrame()
+    finally:
+        conn.close()
+
+    db_bundles = []
+    for _, row in df.iterrows():
+        event = row.to_dict()
+        # Normalize types
+        event["latitude"] = float(event["latitude"])
+        event["longitude"] = float(event["longitude"])
+        # Check if already in session_events
+        if any(e.get("event", {}).get("id") == event["id"] for e in session_events):
+            continue
+        try:
+            bundle = _build_bundle(event)
+            db_bundles.append(bundle)
+        except Exception as e:
+            print(f"Error building bundle for event {event['id']}: {e}")
+
+    combined = list(session_events) + db_bundles
+    return combined[:limit]
 
 
 @app.post("/api/alerts/dispatch")
@@ -195,26 +236,36 @@ def health():
 @app.post("/api/mobility/route")
 def plan_route(payload: dict):
     """Plans a route between source and destination: {"source": [lat, lon], "destination": [lat, lon]}."""
-    source = tuple(payload["source"])
-    destination = tuple(payload["destination"])
-    bundle = orchestrator.plan_route(source, destination)
-    best = bundle.get("best_route", {})
-    route_id = mobility_store.insert_route({
-        "source_lat": source[0],
-        "source_lon": source[1],
-        "dest_lat": destination[0],
-        "dest_lon": destination[1],
-        "distance_km": best.get("distance_km"),
-        "duration_min": best.get("duration_min"),
-        "eta_minutes": best.get("eta_minutes"),
-        "risk_score": best.get("risk_score"),
-        "congestion_score": best.get("congestion_score"),
-        "corridor": best.get("corridor"),
-        "provider": "mappls",
-    })
-    mobility_store.insert_route_alternatives(route_id, bundle.get("alternatives", []))
-    bundle["route_id"] = route_id
-    return bundle
+    try:
+        source = tuple(payload["source"])
+        destination = tuple(payload["destination"])
+        print(f"[API] Route request: {source} -> {destination}")
+        bundle = orchestrator.plan_route(source, destination)
+        best = bundle.get("best_route", {})
+        print(f"[API] Route result: distance={best.get('distance_km')} km, geometry={'yes' if best.get('geometry') else 'NONE'}")
+        try:
+            route_id = mobility_store.insert_route({
+                "source_lat": source[0],
+                "source_lon": source[1],
+                "dest_lat": destination[0],
+                "dest_lon": destination[1],
+                "distance_km": best.get("distance_km"),
+                "duration_min": best.get("duration_min"),
+                "eta_minutes": best.get("eta_minutes"),
+                "risk_score": best.get("risk_score"),
+                "congestion_score": best.get("congestion_score"),
+                "corridor": best.get("corridor"),
+                "provider": "osrm",
+            })
+            mobility_store.insert_route_alternatives(route_id, bundle.get("alternatives", []))
+            bundle["route_id"] = route_id
+        except Exception as db_err:
+            print(f"[API] Route DB insert failed (non-fatal): {db_err}")
+        return bundle
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e), "best_route": {"distance_km": None, "duration_min": None, "eta_minutes": None, "risk_score": 0, "congestion_score": 0, "corridor": "Unknown", "geometry": None}, "alternatives": [], "schema_version": "1.0"}
 
 
 @app.get("/api/nearby")
@@ -222,6 +273,31 @@ def nearby(lat: float, lon: float, categories: str = None):
     """Discovers nearby POIs (hospitals, police, fuel, etc.) around a point."""
     category_list = categories.split(",") if categories else None
     return orchestrator.find_nearby(lat, lon, category_list)
+
+
+@app.get("/api/mobility/search")
+def search_places(q: str):
+    """Searches for locations in Bengaluru using Mappls text search/place search."""
+    from src.ingestion.mappls_ingestion import get_mappls_client
+    client = get_mappls_client()
+    try:
+        # Bias results near Bengaluru center (12.9716, 77.5946)
+        return client.place_search(q, lat=12.9716, lon=77.5946)
+    except Exception as e:
+        print(f"Mappls place search failed: {e}")
+        return []
+
+
+@app.get("/api/mobility/geocode")
+def geocode_place(q: str):
+    """Geocodes an address query using Mappls Geocode."""
+    from src.ingestion.mappls_ingestion import get_mappls_client
+    client = get_mappls_client()
+    try:
+        return client.geocode(q)
+    except Exception as e:
+        print(f"Mappls geocode failed: {e}")
+        return {"lat": None, "lon": None, "formatted_address": None}
 
 
 @app.post("/api/recommendation")

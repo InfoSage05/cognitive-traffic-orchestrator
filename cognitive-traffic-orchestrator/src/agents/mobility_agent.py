@@ -36,24 +36,32 @@ class MobilityAgent:
 
     def _route_with_fallback(self, source: tuple, destination: tuple) -> dict:
         try:
-            return self.mappls.route(source, destination, alternatives=True)
-        except (IngestionHTTPError, MapplsAuthError) as exc:
-            print(f"[MobilityAgent] Mappls route failed, falling back to OSM: {exc}")
+            result = self.mappls.route(source, destination, alternatives=True)
+            if result.get("best") and result["best"].get("geometry"):
+                print(f"[MobilityAgent] Mappls route succeeded: {result['best'].get('distance_km', '?')} km")
+                return result
+            print(f"[MobilityAgent] Mappls route returned empty/no-geometry result, falling back to OSRM")
+        except Exception as exc:
+            print(f"[MobilityAgent] Mappls route failed ({type(exc).__name__}), falling back to OSRM: {exc}")
         try:
-            return self.osm.route(source, destination)
-        except IngestionHTTPError as exc:
-            print(f"[MobilityAgent] OSM route also failed, using straight-line distance estimate: {exc}")
-            distance_km = _haversine_km(source, destination)
-            duration_min = (distance_km / FALLBACK_AVG_SPEED_KMH) * 60.0
-            return {
-                "best": {
-                    "distance_km": distance_km,
-                    "duration_min": duration_min,
-                    "congestion_level": "unknown",
-                    "geometry": None,
-                },
-                "alternatives": [],
-            }
+            result = self.osm.route(source, destination)
+            if result.get("best") and result["best"].get("geometry"):
+                print(f"[MobilityAgent] OSRM route succeeded: {result['best'].get('distance_km', '?')} km")
+                return result
+            print(f"[MobilityAgent] OSRM route returned empty/no-geometry result, using straight-line estimate")
+        except Exception as exc:
+            print(f"[MobilityAgent] OSRM route also failed ({type(exc).__name__}), using straight-line estimate: {exc}")
+        distance_km = _haversine_km(source, destination)
+        duration_min = (distance_km / FALLBACK_AVG_SPEED_KMH) * 60.0
+        return {
+            "best": {
+                "distance_km": distance_km,
+                "duration_min": duration_min,
+                "congestion_level": "unknown",
+                "geometry": None,
+            },
+            "alternatives": [],
+        }
 
     def process(self, source: tuple, destination: tuple) -> dict:
         route_result = self._route_with_fallback(source, destination)

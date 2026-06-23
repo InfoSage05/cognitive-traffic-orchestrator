@@ -14,25 +14,54 @@ export function MapDashboard() {
   const [routeBundle, setRouteBundle] = useState<RouteBundle | null>(null);
   const [pois, setPois] = useState<NearbyPoi[]>([]);
   const [incidents, setIncidents] = useState<EventBundle[]>([]);
+  const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
+
+  const BENGALURU: [number, number] = [12.9716, 77.5946];
 
   useEffect(() => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setMapCenter(BENGALURU);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
-      (position) => setCurrentLocation([position.coords.latitude, position.coords.longitude]),
-      () => {},
+      (position) => {
+        const coords: [number, number] = [position.coords.latitude, position.coords.longitude];
+        setCurrentLocation(coords);
+        setMapCenter(coords);
+      },
+      () => {
+        // Geolocation denied — default to Bengaluru center
+        setMapCenter(BENGALURU);
+      },
     );
   }, []);
 
+  // Auto-load nearby POIs for the initial center point
   useEffect(() => {
-    const load = () => api.recentEvents(20).then(setIncidents).catch(() => {});
+    const center = currentLocation ?? BENGALURU;
+    api.nearby(center[0], center[1], ["hospital", "police", "fuel"])
+      .then((res) => {
+        if (res.pois?.length) setPois(res.pois);
+      })
+      .catch(() => {});
+  }, [currentLocation]);
+
+  useEffect(() => {
+    const load = () => api.recentEvents(30).then(setIncidents).catch(() => {});
     load();
     const interval = setInterval(load, 15000);
     return () => clearInterval(interval);
   }, []);
 
   const handleMapClick = (lat: number, lon: number) => {
-    if (pickMode === "source") setSource([lat, lon]);
-    if (pickMode === "destination") setDestination([lat, lon]);
+    if (pickMode === "source") {
+      setSource([lat, lon]);
+      setMapCenter([lat, lon]);
+    }
+    if (pickMode === "destination") {
+      setDestination([lat, lon]);
+      setMapCenter([lat, lon]);
+    }
     setPickMode(null);
   };
 
@@ -40,6 +69,7 @@ export function MapDashboard() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-3 px-5 pb-6">
       <div className="lg:col-span-2">
         <MapView
+          center={mapCenter}
           currentLocation={currentLocation}
           source={source}
           destination={destination}
@@ -57,15 +87,32 @@ export function MapDashboard() {
           destination={destination}
           pickMode={pickMode}
           onPickMode={setPickMode}
-          onSourceChange={setSource}
-          onDestinationChange={setDestination}
+          onSourceChange={(coords) => {
+            setSource(coords);
+            if (coords) setMapCenter(coords);
+          }}
+          onDestinationChange={(coords) => {
+            setDestination(coords);
+            if (coords) setMapCenter(coords);
+          }}
           routeBundle={routeBundle}
           onRouteBundle={setRouteBundle}
         />
-        <NearbyDiscovery centerLocation={currentLocation ?? source} pois={pois} onPois={setPois} />
+        <NearbyDiscovery
+          centerLocation={currentLocation ?? source}
+          pois={pois}
+          onPois={setPois}
+          onSelectPoi={setMapCenter}
+        />
         <EmergencyPanel
-          onLocate={setCurrentLocation}
-          onDestination={setDestination}
+          onLocate={(coords) => {
+            setCurrentLocation(coords);
+            setMapCenter(coords);
+          }}
+          onDestination={(coords) => {
+            setDestination(coords);
+            setMapCenter(coords);
+          }}
           onRouteBundle={setRouteBundle}
         />
         <RecommendationPanel />

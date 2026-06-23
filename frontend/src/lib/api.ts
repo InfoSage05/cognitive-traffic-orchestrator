@@ -131,9 +131,38 @@ export const api = {
     request<NearbyResult>(
       `/api/nearby?lat=${lat}&lon=${lon}${categories?.length ? `&categories=${categories.join(",")}` : ""}`,
     ),
+  searchPlaces: (q: string) =>
+    request<Array<{ name: string; lat: number; lon: number }>>(`/api/mobility/search?q=${encodeURIComponent(q)}`),
+  geocode: (q: string) =>
+    request<{ lat: number | null; lon: number | null; formatted_address: string | null }>(
+      `/api/mobility/geocode?q=${encodeURIComponent(q)}`,
+    ),
   recommendation: (event: Record<string, unknown>) =>
     request<RecommendationResult>("/api/recommendation", {
       method: "POST",
       body: JSON.stringify(event),
     }),
+
+  // ─── LLM Planner/Guide Agent endpoints ─────────────────────────────────
+  routeBrief: (route: RouteSummary, events: EventBundle[]) =>
+    request<{ brief: string; model: string }>("/api/ai/route-brief", {
+      method: "POST",
+      body: JSON.stringify({ route, events }),
+    }),
+  aiBrief: (events: EventBundle[], dispatches: DispatchRecord[]) =>
+    request<{ brief: string; model: string }>("/api/ai/brief", {
+      method: "POST",
+      body: JSON.stringify({ events, dispatches }),
+    }),
+  aiAnalyse: (bundle: EventBundle) =>
+    request<{ analysis: string; model: string }>("/api/ai/analyse", {
+      method: "POST",
+      body: JSON.stringify(bundle),
+    }),
+  aiChat: (query: string, context: { events: EventBundle[]; dispatches: DispatchRecord[] }) =>
+    request<{ answer: string; model: string }>("/api/ai/chat", {
+      method: "POST",
+      body: JSON.stringify({ query, context }),
+    }),
 };
+

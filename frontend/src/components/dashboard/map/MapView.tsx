@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { activeTileProvider } from "@/lib/mapProviders";
 import { decodePolyline } from "@/lib/polyline";
 import type { EventBundle, NearbyPoi, RouteSummary } from "@/lib/api";
@@ -47,7 +47,21 @@ function ClickCapture({ enabled, onMapClick }: ClickCaptureProps) {
   return null;
 }
 
+// React-Leaflet controller helper to dynamic pan/zoom
+function ChangeMapView({ center, bounds }: { center: [number, number]; bounds?: L.LatLngBounds | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    } else if (center) {
+      map.setView(center, Math.max(map.getZoom(), 13));
+    }
+  }, [center, bounds, map]);
+  return null;
+}
+
 interface Props {
+  center: [number, number] | null;
   currentLocation: [number, number] | null;
   source: [number, number] | null;
   destination: [number, number] | null;
@@ -59,6 +73,7 @@ interface Props {
 }
 
 export function MapView({
+  center,
   currentLocation,
   source,
   destination,
@@ -69,55 +84,79 @@ export function MapView({
   onMapClick,
 }: Props) {
   const routeLine = useMemo(() => decodePolyline(bestRoute?.geometry), [bestRoute?.geometry]);
-  const center = currentLocation ?? source ?? BENGALURU_CENTER;
+  
+  const bounds = useMemo(() => {
+    if (routeLine.length === 0) return null;
+    const lats = routeLine.map((p) => p[0]);
+    const lons = routeLine.map((p) => p[1]);
+    return L.latLngBounds(
+      [Math.min(...lats), Math.min(...lons)],
+      [Math.max(...lats), Math.max(...lons)]
+    );
+  }, [routeLine]);
+
+  const mapCenter = center ?? currentLocation ?? source ?? BENGALURU_CENTER;
 
   return (
     <div className="glass rounded-2xl p-2 h-[560px] overflow-hidden relative">
       {pickMode && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] px-3 py-1.5 rounded-lg bg-[var(--gradient-primary)] text-primary-foreground text-xs font-medium glow">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] px-3 py-1.5 rounded-lg bg-[var(--gradient-primary)] text-primary-foreground text-xs font-medium glow animate-bounce">
           Click the map to set {pickMode}
         </div>
       )}
-      <MapContainer center={center} zoom={12} className="w-full h-full rounded-xl" style={{ background: "#0a0a14" }}>
+      <MapContainer center={mapCenter} zoom={12} className="w-full h-full rounded-xl" style={{ background: "#e5e7eb" }}>
         <TileLayer url={activeTileProvider.tileUrl} attribution={activeTileProvider.attribution} />
         <ClickCapture enabled={pickMode !== null} onMapClick={onMapClick} />
+        <ChangeMapView center={mapCenter} bounds={bounds} />
 
         {currentLocation && (
           <Marker position={currentLocation} icon={ICONS.current}>
-            <Popup>Current location</Popup>
+            <Popup>
+              <div className="p-1 font-semibold text-xs">Current location</div>
+            </Popup>
           </Marker>
         )}
         {source && (
           <Marker position={source} icon={ICONS.source}>
-            <Popup>Source</Popup>
+            <Popup>
+              <div className="p-1 font-semibold text-xs text-emerald-400">Route Origin (Start)</div>
+            </Popup>
           </Marker>
         )}
         {destination && (
           <Marker position={destination} icon={ICONS.destination}>
-            <Popup>Destination</Popup>
+            <Popup>
+              <div className="p-1 font-semibold text-xs text-rose-400">Route Destination (End)</div>
+            </Popup>
           </Marker>
         )}
         {routeLine.length > 1 && (
-          <Polyline positions={routeLine} pathOptions={{ color: "oklch(0.7 0.2 195)", weight: 4, opacity: 0.85 }} />
+          <Polyline positions={routeLine} pathOptions={{ color: "oklch(0.7 0.2 195)", weight: 5, opacity: 0.85 }} />
         )}
         {nearbyPois
           .filter((p) => p.lat != null && p.lon != null)
           .map((p, idx) => (
             <Marker key={`${p.category}-${idx}`} position={[p.lat as number, p.lon as number]} icon={ICONS.poi}>
               <Popup>
-                <strong>{p.name}</strong>
-                <br />
-                {p.category} · {p.source}
-                {p.distance_m != null && <div>{Math.round(p.distance_m)} m away</div>}
+                <div className="p-1.5 text-xs">
+                  <strong className="font-semibold text-indigo-400">{p.name}</strong>
+                  <div className="text-[10px] text-muted-foreground capitalize mt-0.5">{p.category.replace(/_/g, " ")} · {p.source}</div>
+                  {p.distance_m != null && <div className="text-[10px] text-accent/80 mt-1">{Math.round(p.distance_m)}m away</div>}
+                </div>
               </Popup>
             </Marker>
           ))}
         {incidents.map((b) => (
           <Marker key={b.event.id} position={[b.event.latitude, b.event.longitude]} icon={ICONS.incident}>
             <Popup>
-              <strong>{b.event.event_cause.replace(/_/g, " ")}</strong>
-              <br />
-              {b.event.corridor} · Risk {b.riskScore}
+              <div className="p-1.5 text-xs">
+                <strong className="font-semibold text-amber-400">{b.event.event_cause.replace(/_/g, " ")}</strong>
+                <div className="text-[10px] text-muted-foreground mt-0.5">{b.event.corridor}</div>
+                <div className="flex gap-2.5 mt-1.5 text-[10px] font-medium border-t border-border/30 pt-1">
+                  <span>Risk Score: <b className="text-rose-400">{b.riskScore}</b></span>
+                  <span>Duration: <b className="text-cyan-400">{b.predictedDurationHours} hrs</b></span>
+                </div>
+              </div>
             </Popup>
           </Marker>
         ))}
