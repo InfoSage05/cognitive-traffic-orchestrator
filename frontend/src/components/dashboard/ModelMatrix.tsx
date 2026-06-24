@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Brain, Sparkles, Database, Gauge, Loader2, Activity } from "lucide-react";
+import { Brain, Sparkles, Database, Gauge, Loader2, Activity, SlidersHorizontal, AlertTriangle } from "lucide-react";
 import { api, type EventBundle } from "@/lib/api";
 
 export function ModelMatrix() {
   const [bundle, setBundle] = useState<EventBundle | null>(null);
   const [dispatching, setDispatching] = useState(false);
   const [dispatched, setDispatched] = useState(false);
+  const [volumeMultiplier, setVolumeMultiplier] = useState(1.0);
 
   const load = () =>
     api
@@ -35,26 +36,30 @@ export function ModelMatrix() {
     }
   };
 
+  const tweakedRiskScore = bundle ? Math.min(100, bundle.riskScore * Math.sqrt(volumeMultiplier)) : 0;
+  const tweakedDuration = bundle ? bundle.predictedDurationHours * (volumeMultiplier > 1 ? volumeMultiplier * 1.2 : volumeMultiplier) : 0;
+  const tweakedBlockage = bundle && bundle.blockageImpact !== undefined ? Math.min(100, bundle.blockageImpact * volumeMultiplier) : 0;
+
   const models = [
     {
       name: "Spatio-Temporal Risk Engine",
       tag: "Direction 1",
       icon: Gauge,
       metric: "Risk Index",
-      value: bundle ? bundle.riskScore.toFixed(1) : "0 – 100",
+      value: bundle ? tweakedRiskScore.toFixed(1) : "0 – 100",
       detail: "Computes proximity- and history-weighted live risk per corridor.",
       accent: "from-[oklch(0.7_0.27_340)] to-[oklch(0.66_0.24_295)]",
-      bars: [82, 67, 54, 73, 48, bundle ? Math.round(bundle.riskScore) : 91],
+      bars: [82, 67, 54, 73, 48, bundle ? Math.round(tweakedRiskScore) : 91],
     },
     {
       name: "LightGBM Duration Predictor",
       tag: "Direction 2",
       icon: Brain,
       metric: "Predicted duration",
-      value: bundle ? `${bundle.predictedDurationHours.toFixed(2)} hrs` : "—",
+      value: bundle ? `${tweakedDuration.toFixed(2)} hrs` : "—",
       detail: "Trained on Nov–Feb historical logs, verified on a Mar–Apr held-out set.",
       accent: "from-[oklch(0.66_0.24_295)] to-[oklch(0.7_0.2_195)]",
-      bars: [45, 52, 60, 64, 70, bundle ? Math.min(100, Math.round(bundle.predictedDurationHours * 12)) : 78],
+      bars: [45, 52, 60, 64, 70, bundle ? Math.min(100, Math.round(tweakedDuration * 12)) : 78],
     },
     {
       name: "Nearest-Neighbour RAG",
@@ -71,15 +76,36 @@ export function ModelMatrix() {
       tag: "Direction 4",
       icon: Activity,
       metric: "Impact severity",
-      value: bundle && bundle.blockageImpact !== undefined ? `${bundle.blockageImpact.toFixed(0)}%` : "—",
+      value: bundle && bundle.blockageImpact !== undefined ? `${tweakedBlockage.toFixed(0)}%` : "—",
       detail: "Aggregates live CCTV flow data and historical baseline for current corridor.",
       accent: "from-[oklch(0.75_0.2_155)] to-[oklch(0.7_0.27_340)]",
-      bars: [20, 35, 40, 60, 50, bundle && bundle.blockageImpact !== undefined ? Math.min(100, Math.round(bundle.blockageImpact)) : 30],
+      bars: [20, 35, 40, 60, 50, bundle && bundle.blockageImpact !== undefined ? Math.min(100, Math.round(tweakedBlockage)) : 30],
     },
   ];
 
   return (
     <div className="p-3 px-5 pb-6 space-y-4">
+      {bundle && (
+        <div className="glass rounded-2xl p-5 mb-4">
+          <div className="flex items-center gap-2 mb-4">
+            <SlidersHorizontal className="w-4 h-4 text-accent" />
+            <div className="text-sm font-medium">What-If Simulator: Traffic Volume Multiplier</div>
+          </div>
+          <div className="flex items-center gap-4">
+            <input
+              type="range"
+              min="0.5"
+              max="2.5"
+              step="0.1"
+              value={volumeMultiplier}
+              onChange={(e) => setVolumeMultiplier(parseFloat(e.target.value))}
+              className="flex-1 accent-primary"
+            />
+            <div className="w-12 text-right font-mono text-sm">{volumeMultiplier.toFixed(1)}x</div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-4">
         {models.map((m, i) => {
           const Icon = m.icon;
@@ -188,6 +214,52 @@ export function ModelMatrix() {
           </div>
         )}
       </div>
+
+      {bundle && (
+        <div className="glass rounded-2xl p-5 mt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-4 h-4 text-warning" />
+            <div className="text-sm font-medium">Live Action Plan & Instructions</div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            {tweakedBlockage > 80 ? (
+              <div className="bg-destructive/20 border border-destructive/50 rounded-lg p-3 text-sm">
+                <div className="font-semibold text-destructive mb-1">Severe Blockage</div>
+                Immediate rerouting of heavy vehicles required on the corridor.
+              </div>
+            ) : (
+              <div className="bg-success/20 border border-success/50 rounded-lg p-3 text-sm">
+                <div className="font-semibold text-success mb-1">Manageable Traffic</div>
+                Standard traffic flow management applies. No heavy rerouting needed.
+              </div>
+            )}
+
+            {tweakedDuration > 2.0 ? (
+              <div className="bg-warning/20 border border-warning/50 rounded-lg p-3 text-sm">
+                <div className="font-semibold text-warning mb-1">Long Clearance Window</div>
+                Deploy portable Variable Message Signs (VMS) upstream to warn commuters.
+              </div>
+            ) : (
+              <div className="bg-success/20 border border-success/50 rounded-lg p-3 text-sm">
+                <div className="font-semibold text-success mb-1">Quick Clearance</div>
+                Standard incident response is sufficient.
+              </div>
+            )}
+
+            {tweakedRiskScore > 70 ? (
+              <div className="bg-destructive/20 border border-destructive/50 rounded-lg p-3 text-sm">
+                <div className="font-semibold text-destructive mb-1">High Risk Corridor</div>
+                Request emergency ambulance and towing standby units nearby.
+              </div>
+            ) : (
+              <div className="bg-success/20 border border-success/50 rounded-lg p-3 text-sm">
+                <div className="font-semibold text-success mb-1">Low/Moderate Risk</div>
+                Monitor corridor via CCTV. No extra emergency units required.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
