@@ -38,6 +38,7 @@ export interface EventBundle {
   event: OrchestratedEvent;
   riskScore: number;
   predictedDurationHours: number;
+  blockageImpact?: number;
   recommendation: Recommendation;
 }
 

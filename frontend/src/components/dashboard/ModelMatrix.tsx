@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Brain, Sparkles, Database, Gauge, Loader2 } from "lucide-react";
+import { Brain, Sparkles, Database, Gauge, Loader2, Activity } from "lucide-react";
 import { api, type EventBundle } from "@/lib/api";
 
 export function ModelMatrix() {
@@ -66,11 +66,21 @@ export function ModelMatrix() {
       accent: "from-[oklch(0.7_0.2_195)] to-[oklch(0.75_0.2_155)]",
       bars: [30, 40, 55, 70, 85, recommendation ? recommendation.similar_cases.length * 30 : 88],
     },
+    {
+      name: "Real-time Blockage Impact",
+      tag: "Direction 4",
+      icon: Activity,
+      metric: "Impact severity",
+      value: bundle && bundle.blockageImpact !== undefined ? `${bundle.blockageImpact.toFixed(0)}%` : "—",
+      detail: "Aggregates live CCTV flow data and historical baseline for current corridor.",
+      accent: "from-[oklch(0.75_0.2_155)] to-[oklch(0.7_0.27_340)]",
+      bars: [20, 35, 40, 60, 50, bundle && bundle.blockageImpact !== undefined ? Math.min(100, Math.round(bundle.blockageImpact)) : 30],
+    },
   ];
 
   return (
     <div className="p-3 px-5 pb-6 space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-4">
         {models.map((m, i) => {
           const Icon = m.icon;
           return (

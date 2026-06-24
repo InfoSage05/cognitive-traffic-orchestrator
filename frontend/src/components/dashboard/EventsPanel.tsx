@@ -56,7 +56,7 @@ function generateMockEvent(): LocalEvent {
   const severity = isHigh ? "high" : isMed ? "medium" : "low";
   const type = MOCK_TYPES[Math.floor(Math.random() * MOCK_TYPES.length)];
   const loc = MOCK_LOCATIONS[Math.floor(Math.random() * MOCK_LOCATIONS.length)];
-  
+
   return {
     id: `ev-${Math.random().toString(36).substr(2, 9)}`,
     timestamp: new Date().toLocaleTimeString(),
@@ -79,7 +79,7 @@ export function EventsPanel() {
   const [isDemo, setIsDemo] = useState(false);
   const [triggering, setTriggering] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   // Use refs for intervals and state to avoid stale closures
   const isDemoRef = useRef(false);
   const mockIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -156,16 +156,16 @@ export function EventsPanel() {
         translatedText: b.event.event_cause.replace(/_/g, " "),
         confidence: 99,
       };
-      
+
       setIsDemo(false);
       isDemoRef.current = false;
       if (mockIntervalRef.current) {
         clearInterval(mockIntervalRef.current);
         mockIntervalRef.current = null;
       }
-      
+
       setEvents(prev => [newEv, ...prev]);
-    } catch(e) {
+    } catch (e) {
       console.error("Failed to trigger mock event:", e);
     } finally {
       setTriggering(false);
@@ -185,7 +185,7 @@ export function EventsPanel() {
   // Mock chart data
   const riskTrendData = events.slice(0, 15).reverse().map((e, i) => ({
     time: i,
-    risk: e.severity === 'high' ? 85 + Math.random()*10 : e.severity === 'medium' ? 50 + Math.random()*20 : 20 + Math.random()*15
+    risk: e.severity === 'high' ? 85 + Math.random() * 10 : e.severity === 'medium' ? 50 + Math.random() * 20 : 20 + Math.random() * 15
   }));
 
   const typeDist = MOCK_TYPES.map(t => ({
@@ -195,7 +195,7 @@ export function EventsPanel() {
 
   return (
     <div className="flex flex-col h-full gap-4 p-3 px-5 pb-6 overflow-y-auto custom-scrollbar">
-      
+
       {/* Top KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 shrink-0">
         {kpis.map((kpi, i) => (
@@ -218,7 +218,7 @@ export function EventsPanel() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 flex-1 min-h-[400px]">
-        
+
         {/* Main Event Timeline (Span 8) */}
         <div className="xl:col-span-8 glass rounded-xl p-4 border border-border/50 flex flex-col">
           <div className="flex items-center justify-between mb-4 shrink-0">
@@ -248,15 +248,15 @@ export function EventsPanel() {
               </div>
             </div>
           </div>
-          
+
           <div ref={containerRef} className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
             <AnimatePresence initial={false}>
               {events.map((ev, i) => {
-                const color = ev.severity === "high" ? "border-rose-500/30 bg-rose-500/10" 
-                            : ev.severity === "medium" ? "border-amber-500/30 bg-amber-500/10" 
-                            : "border-emerald-500/30 bg-emerald-500/5";
+                const color = ev.severity === "high" ? "border-rose-500/30 bg-rose-500/10"
+                  : ev.severity === "medium" ? "border-amber-500/30 bg-amber-500/10"
+                    : "border-emerald-500/30 bg-emerald-500/5";
                 const dotColor = ev.severity === "high" ? "bg-rose-500" : ev.severity === "medium" ? "bg-amber-500" : "bg-emerald-500";
-                
+
                 return (
                   <motion.div
                     key={ev.id}
@@ -302,7 +302,7 @@ export function EventsPanel() {
 
         {/* Right Panels (Span 4) */}
         <div className="xl:col-span-4 flex flex-col gap-4">
-          
+
           {/* Latest AI Insight */}
           <div className="glass rounded-xl p-4 border border-border/50">
             <div className="flex items-center gap-2 mb-3">
@@ -313,8 +313,8 @@ export function EventsPanel() {
               <div className="absolute top-0 right-0 w-16 h-16 bg-[var(--color-primary)]/20 blur-2xl rounded-full" />
               <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Traffic Summary</div>
               <p className="text-sm text-white/90 leading-relaxed font-medium">
-                {latestEvent.severity === 'high' ? 'Severe ' : 'Moderate '} 
-                <span className="text-[var(--color-primary)]">{latestEvent.type.toLowerCase()}</span> detected near {latestEvent.location}. 
+                {latestEvent.severity === 'high' ? 'Severe ' : 'Moderate '}
+                <span className="text-[var(--color-primary)]">{latestEvent.type.toLowerCase()}</span> detected near {latestEvent.location}.
                 Immediate attention recommended. Expected delay: {latestEvent.severity === 'high' ? '25' : '10'} minutes.
               </p>
             </div>
@@ -326,7 +326,7 @@ export function EventsPanel() {
               <Languages className="w-4 h-4 text-emerald-400" />
               <div className="text-sm font-semibold">Latest Imputation Pipeline</div>
             </div>
-            
+
             <div className="space-y-3">
               <div className="p-2.5 rounded-lg bg-secondary/30 border border-white/5">
                 <div className="flex justify-between items-center mb-1">
@@ -337,13 +337,13 @@ export function EventsPanel() {
                   {latestEvent.rawText}
                 </div>
               </div>
-              
+
               <div className="flex justify-center">
                 <div className="bg-emerald-500/20 text-emerald-400 rounded-full p-1 border border-emerald-500/30">
                   <Filter className="w-3 h-3" />
                 </div>
               </div>
-              
+
               <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-[10px] text-emerald-400 uppercase font-semibold">Imputed English Mapping</span>
@@ -357,13 +357,13 @@ export function EventsPanel() {
               </div>
             </div>
           </div>
-          
+
         </div>
       </div>
 
       {/* Bottom Section: Event Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0 h-[220px]">
-        
+
         {/* Risk Trend */}
         <div className="glass rounded-xl p-4 border border-border/50 flex flex-col">
           <div className="text-xs font-semibold mb-2 flex items-center gap-1.5 text-muted-foreground uppercase">
@@ -374,13 +374,13 @@ export function EventsPanel() {
               <AreaChart data={riskTrendData}>
                 <defs>
                   <linearGradient id="colorRisk" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="time" hide />
                 <YAxis hide domain={[0, 100]} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#0a0a14', border: '1px solid #1f2937', borderRadius: '8px', fontSize: '12px' }}
                   itemStyle={{ color: '#fff' }}
                 />
@@ -412,7 +412,7 @@ export function EventsPanel() {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#0a0a14', border: '1px solid #1f2937', borderRadius: '8px', fontSize: '12px' }}
                   itemStyle={{ color: '#fff' }}
                 />
@@ -436,7 +436,7 @@ export function EventsPanel() {
                 { name: 'Dispatch', val: 32 },
               ]}>
                 <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                <Tooltip 
+                <Tooltip
                   cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                   contentStyle={{ backgroundColor: '#0a0a14', border: '1px solid #1f2937', borderRadius: '8px', fontSize: '12px' }}
                 />

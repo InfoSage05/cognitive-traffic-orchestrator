@@ -73,10 +73,26 @@ def _build_bundle(event: dict) -> dict:
     raw_recommendation = rag.recommend(event_cause, corridor)
     recommendation = rag.validate_brief(raw_recommendation)
 
+    # Heuristic for Live Traffic Load / Blockage Impact
+    try:
+        timestamp_str = event.get("timestamp") or event.get("start_datetime")
+        if timestamp_str:
+            hour = pd.to_datetime(timestamp_str).hour
+        else:
+            hour = pd.Timestamp.now().hour
+    except Exception:
+        hour = pd.Timestamp.now().hour
+
+    # Higher base load during peak hours (8-11 AM, 5-9 PM)
+    base_load = 75 if hour in [8, 9, 10, 17, 18, 19, 20] else 45
+    # Risk score inflates the load directly
+    blockage_impact = min(100.0, base_load + (float(risk_score) * 0.4))
+
     return {
         "event": event,
         "riskScore": round(float(risk_score), 1),
         "predictedDurationHours": round(float(predicted_duration), 2),
+        "blockageImpact": round(float(blockage_impact), 1),
         "recommendation": recommendation,
     }
 
