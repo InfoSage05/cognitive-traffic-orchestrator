@@ -1,6 +1,9 @@
 # 🚦 Cognitive Traffic Orchestrator
 
+**🌐 Live Demo: [https://cognitive-traffic-orchestrator.vercel.app/](https://cognitive-traffic-orchestrator.vercel.app/)**
+
 A scalable AI pipeline and interactive dashboard designed to solve unplanned traffic gridlocks in Bengaluru. The system integrates real-time CCTV edge processing, a Multi-Agent Control Plane for data processing, and predictive models, all visualized on a sleek React-based dashboard.
+
 
 This project is divided into two main components:
 1. **Backend (Python)**: The core AI engine handling data ingestion, agentic orchestration, and predictive modeling, exposed via a FastAPI layer.
